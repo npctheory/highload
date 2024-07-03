@@ -10,12 +10,6 @@ To build both Docker images using a single command, you can use the following in
 
 1. **Navigate to the root directory of your project**:
    
-   Open your terminal and navigate to the root directory where the `/src` and `/db` directories are located.
-
-   ```bash
-   cd path/to/your/project/root
-   ```
-   
 ```bash
 docker build -t springboot-app ./src && docker build -t custom-postgres ./db
 ```
