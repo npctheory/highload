@@ -1,0 +1,5 @@
+# Ignore all files and subdirectories within 'volumes'
+volumes/*
+
+# Except for the empty 'volumes' directory itself
+!volumes/.gitkeep
