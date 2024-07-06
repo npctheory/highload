@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  pg_master:
+    image: pg_master
+    container_name: pg_master
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      #PGDATA: /var/lib/postgresql/data/db-files/
+    ports:
+      - "5432:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_master_data:/var/lib/postgresql/data
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    depends_on:
+      - pg_master
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - pg_net
+
+  springbootapp:
+    build:
+      context: ./src
+    container_name: springbootapp
+    environment:
+      DATABASE_URL: jdbc:postgresql://pg_master:5432/user
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: pass
+    depends_on:
+      - pg_master
+    ports:
+      - "8080:8080"
+    networks:
+      - pg_net
+
+volumes:
+  pgadmin_data:
+  pg_master_data:
+
+networks:
+  pg_net:
+    external: true
