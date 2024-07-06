@@ -1,5 +1,14 @@
-# Ignore all files and subdirectories within 'volumes'
+# Ignore all files and folders in the 'volumes' directory
 volumes/*
 
-# Except for the empty 'volumes' directory itself
-!volumes/.gitkeep
+# Don't ignore 'pg_slave' and 'pg_asyncslave' folders
+!volumes/pg_slave/
+!volumes/pg_asyncslave/
+
+# Ignore everything inside 'pg_slave' and 'pg_asyncslave'
+volumes/pg_slave/*
+volumes/pg_asyncslave/*
+
+# Don't ignore .gitkeep files to ensure directories are kept in the repository
+!volumes/pg_slave/.gitkeep
+!volumes/pg_asyncslave/.gitkeep
