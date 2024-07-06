@@ -1,28 +1,18 @@
-# Project Setup
+## Как запустить
 
-This project contains two main components:
-1. A Spring Boot application located in the `/src` directory.
-2. A PostgreSQL configuration located in the `/db` directory.
-
-## Building the Docker Images
-
-To build both Docker images using a single command, you can use the following instructions:
-
-1. **Navigate to the root directory of your project**:
-
+1. **Создать Docker-сеть**
 ```bash
 docker network create pg_net
 ```
-
+2. **Собрать Docker-имиджи серверов Postgres**
 ```bash
 docker build -t pg_master --build-arg PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}') -f pg_master/Dockerfile . &&
-docker run -d --name pg_master --restart unless-stopped -e POSTGRES_DB=user -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 --network=pg_net pg_master
 ```
-
+3. **Запустить Docker Compose**
 ```
 docker compose up
 ```
-
+4. **Проверка**
 ```bash
 docker exec -it pg_master //bin//bash
 cat /var/lib/postgresql/data/pg_hba.conf
@@ -34,3 +24,10 @@ SELECT rolname FROM pg_roles WHERE rolname = 'replicator';
 pg_basebackup -h pg_master -D /pgslave -U replicator -v -P --wal-method=stream
 docker cp pg_master:/pgslave volumes/pgslave/
 ```
+
+**Запустить мастер отдельно**
+```
+docker run -d --name pg_master --restart unless-stopped -e POSTGRES_DB=user -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 --network=pg_net pg_master
+```
+
+## Как это работает
