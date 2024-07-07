@@ -2,55 +2,49 @@ version: '3.8'
 
 services:
   pg_master:
-    image: pg_master
+    image: postgres:latest
     container_name: pg_master
     restart: unless-stopped
     environment:
       POSTGRES_DB: user
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      #PGDATA: /var/lib/postgresql/data/db-files/
     ports:
-      - "5432:5432"
+      - "6438:5432"
     networks:
       - pg_net
     volumes:
-      - pg_master_data:/var/lib/postgresql/data
+      - ./volumes/pg_master:/var/lib/postgresql/data
 
-  pgadmin:
-    container_name: pgadmin
-    image: dpage/pgadmin4
+  pg_slave:
+    image: postgres:latest
+    container_name: pg_slave
     restart: unless-stopped
-    ports:
-      - "8082:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: adminpassword
-    depends_on:
-      - pg_master
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "16432:5432"
+    networks:
+      - pg_net
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - pg_net
+      - ./volumes/pg_slave:/var/lib/postgresql/data
 
-  springbootapp:
-    build:
-      context: ./src
-    container_name: springbootapp
+  pg_asyncslave:
+    image: postgres:latest
+    container_name: pg_asyncslave
+    restart: unless-stopped
     environment:
-      DATABASE_URL: jdbc:postgresql://pg_master:5432/user
-      DATABASE_USER: postgres
-      DATABASE_PASSWORD: pass
-    depends_on:
-      - pg_master
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "8080:8080"
+      - "26432:5432"
     networks:
       - pg_net
-
-volumes:
-  pgadmin_data:
-  pg_master_data:
+    volumes:
+      - ./volumes/pg_asyncslave:/var/lib/postgresql/data
 
 networks:
   pg_net:
