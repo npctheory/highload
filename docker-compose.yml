@@ -46,6 +46,53 @@ services:
     volumes:
       - ./volumes/pg_asyncslave:/var/lib/postgresql/data
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - ./pgadmin_data:/var/lib/pgadmin
+    networks:
+      - pg_net
+
+  pg_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: pg_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_master:5432/user?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - pg_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - pg_net
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    networks:
+      - pg_net
+
 networks:
   pg_net:
     external: true

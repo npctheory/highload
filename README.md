@@ -6,7 +6,8 @@ docker exec -it -e PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Conf
 
 echo "ssl = off" | tee -a "$PGDATA/postgresql.conf" > /dev/null &&
 echo "wal_level = replica" | tee -a "$PGDATA/postgresql.conf" > /dev/null &&
-echo "max_wal_senders = 4" | tee -a "$PGDATA/postgresql.conf" > /dev/null &&
+echo "max_wal_senders = 4" | tee -a "$PGDATA/postgresql.conf" > /dev/null
+
 echo "host replication replicator $PG_NET md5" >> "$PGDATA/pg_hba.conf"
 
 grep -E '^(ssl|wal_level|max_wal_senders)\s*=' /var/lib/postgresql/data/postgresql.conf || echo "Parameters not found." &&
@@ -20,7 +21,7 @@ docker exec -it pg_master su - postgres -c psql
 create role replicator with login replication password 'pass';
 SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'replicator');
 
-exit
+exit;
 
 docker-compose -f docker-compose-create-backup.yml restart pg_master
 
@@ -60,4 +61,81 @@ select application_name, sync_state from pg_stat_replication;
 
 exit
 
+**Создадим тестовую таблицу на pgmaster и проверим репликацию**
+docker exec -it pg_master su - postgres -c psql
 
+create table test(id bigint primary key not null);
+insert into test(id) values(1);
+select * from test;
+exit;
+
+docker exec -it pg_slave su - postgres -c psql
+
+select * from test;
+
+exit;
+
+
+docker exec -it pg_asyncslave su - postgres -c psql
+
+select * from test;
+
+exit;
+
+**19**
+docker exec -it pg_slave su - postgres -c psql
+insert into test(id) values(2);
+exit;
+**20**
+docker stop pg_asyncslave
+
+docker exec -it pg_master su - postgres -c psql
+
+select application_name, sync_state from pg_stat_replication;
+
+insert into test(id) values(2);
+
+select * from test;
+
+exit;
+
+docker exec -it pg_slave su - postgres -c psql
+select * from test;
+exit;
+**21**
+docker stop pg_slave
+
+docker exec -it pg_master su - postgres -c psql
+
+select application_name, sync_state from pg_stat_replication;
+
+insert into test(id) values(3);
+
+docker start pg_slave
+
+docker start pg_asyncslave
+
+docker stop pg_master
+
+**24**
+docker exec -it pg_slave su - postgres -c psql
+
+select pg_promote();
+
+exit;
+
+docker exec -it pg_slave su - postgres -c psql
+
+insert into test(id) values(4);
+
+exit;
+
+head -n -2 volumes/pg_slave/postgresql.conf > volumes/pg_slave/postgresql.conf.tmp && mv volumes/pg_slave/postgresql.conf.tmp volumes/pg_slave/postgresql.conf &&
+echo "synchronous_commit = on" | tee -a volumes/pg_slave/postgresql.conf > /dev/null &&
+echo "synchronous_standby_names = 'FIRST 1 (pg_master, pg_asyncslave)'" | tee -a volumes/pg_slave/postgresql.conf > /dev/null
+
+docker exec -it pg_slave su - postgres -c psql
+
+select pg_reload_conf();
+
+exit;
