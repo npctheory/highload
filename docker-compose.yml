@@ -56,18 +56,34 @@ services:
     ports:
       - "5050:80"
     volumes:
-      - ./pgadmin_data:/var/lib/pgadmin
+      - ./volumes/pgadmin_data:/var/lib/pgadmin
     networks:
       - pg_net
 
-  pg_exporter:
+  pg_exporter_master:
     image: prometheuscommunity/postgres-exporter:latest
-    container_name: pg_exporter
+    container_name: pg_exporter_master
     restart: unless-stopped
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_master:5432/user?sslmode=disable"
-    ports:
-      - "9187:9187"
+    networks:
+      - pg_net
+
+  pg_exporter_slave:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: pg_exporter_slave
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_slave:5432/user?sslmode=disable"
+    networks:
+      - pg_net
+
+  pg_exporter_asyncslave:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: pg_exporter_asyncslave
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_asyncslave:5432/user?sslmode=disable"
     networks:
       - pg_net
 
@@ -76,7 +92,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus_data:/prometheus
+      - ./volumes/prometheus_data:/prometheus
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
@@ -85,11 +101,12 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    container_name: grafana-highload
     restart: unless-stopped
     ports:
       - "3002:3000"
     volumes:
-      - ./grafana_data:/var/lib/grafana
+      - ./volumes/grafana_data:/var/lib/grafana
     networks:
       - pg_net
 

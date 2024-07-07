@@ -4,12 +4,12 @@ global:
 scrape_configs:
   - job_name: 'pg_master'
     static_configs:
-      - targets: ['pg_exporter:9187']
+      - targets: ['pg_exporter_master:9187']
 
   - job_name: 'pg_slave'
     static_configs:
-      - targets: ['pg_slave:9187']
+      - targets: ['pg_exporter_slave:9187']
 
   - job_name: 'pg_asyncslave'
     static_configs:
-      - targets: ['pg_asyncslave:9187']
+      - targets: ['pg_exporter_asyncslave:9187']
