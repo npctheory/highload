@@ -80,24 +80,29 @@ docker compose -f docker-compose-create-backup.yml down
 
 docker compose up -d
 ```
-Готово.
-***
-### Меняем местами pg_master и pg_slave
+Проверяем что обе реплики работают в режиме async
+```bash
 docker exec -it pg_master su - postgres -c psql
 select application_name, sync_state from pg_stat_replication;
 exit
-
+```
+Делаем на pg_master настройку, что первая реплика из списка должна быть синхронной.
+```bash
 echo "synchronous_commit = on" | tee -a volumes/pg_master/postgresql.conf > /dev/null &&
 echo "synchronous_standby_names = 'FIRST 1 (pg_slave, pg_asyncslave)'" | tee -a volumes/pg_master/postgresql.conf > /dev/null
-
+```
+Проверяем, чтобы pg_slave был sync а pg_asyncslave был potential
+```bash
 docker exec -it pg_master su - postgres -c psql
 
 select pg_reload_conf();
 select application_name, sync_state from pg_stat_replication;
 
 exit
-
-**Создадим тестовую таблицу на pgmaster и проверим репликацию**
+```
+**Проверка**
+Создаем тестовые таблицы
+```bash
 docker exec -it pg_master su - postgres -c psql
 
 create table test(id bigint primary key not null);
@@ -117,12 +122,16 @@ docker exec -it pg_asyncslave su - postgres -c psql
 select * from test;
 
 exit;
+```
 
-**19**
+Проверяем что INSERT на слейве выдает ошибку
+```bash
 docker exec -it pg_slave su - postgres -c psql
 insert into test(id) values(2);
 exit;
-**20**
+```
+Проверяем что без асинхронного слейва pg_master продолжает работать.
+```
 docker stop pg_asyncslave
 
 docker exec -it pg_master su - postgres -c psql
@@ -134,11 +143,13 @@ insert into test(id) values(2);
 select * from test;
 
 exit;
-
+```
+Без синхронного слейва pg_master должен вешаться на INSERT
+```bash
 docker exec -it pg_slave su - postgres -c psql
 select * from test;
 exit;
-**21**
+
 docker stop pg_slave
 
 docker exec -it pg_master su - postgres -c psql
@@ -146,14 +157,16 @@ docker exec -it pg_master su - postgres -c psql
 select application_name, sync_state from pg_stat_replication;
 
 insert into test(id) values(3);
-
+```
+```bash
 docker start pg_slave
 
 docker start pg_asyncslave
 
 docker stop pg_master
-
-**24**
+```
+***
+### Меняем местами pg_master и pg_slave
 docker exec -it pg_slave su - postgres -c psql
 
 select pg_promote();
