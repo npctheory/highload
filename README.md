@@ -9,9 +9,17 @@ docker network create pg_net
 ```bash
 docker compose -f docker-compose-create-backup.yml up -d
 ```
+Копируем дамп
+```bash
+docker cp postgres/dbdump pg_master:/dbdump
+```
 Подключаемся к контейнеру pg_master и в переменную $PG_NET записываем то, что пойдет в pg_hba.conf
 ```bash
 docker exec -it -e PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}') pg_master bash
+```
+Восстанавливаем дамп
+```
+psql -U postgres -d user -f /dbdump
 ```
 На мастере в postgresql.conf устанавливаем ssl, wal_level, max_wal_senders
 ```bash
