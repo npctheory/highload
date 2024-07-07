@@ -1,5 +1,5 @@
   
-### Физическая Репликация (Streaming Replication)
+## Физическая Репликация (Streaming Replication)
 **Создаем сеть**
 ```bash
 docker network create pg_net
@@ -166,7 +166,7 @@ docker start pg_asyncslave
 docker stop pg_master
 ```
 ***
-### Меняем местами pg_master и pg_slave
+## Меняем местами pg_master и pg_slave
 docker exec -it pg_slave su - postgres -c psql
 
 select pg_promote();
