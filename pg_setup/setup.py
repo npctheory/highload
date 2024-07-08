@@ -21,16 +21,18 @@ def extract_tar(tarfile_path, destination):
         print(f"Error extracting {tarfile_path} to {destination}: {str(e)}", flush=True)
 
 # Function to change ownership and permissions of files
-def change_permissions(directory):
+def change_permissions_and_ownership(directory, uid=999, gid=999):
     for root, dirs, files in os.walk(directory):
         for dir_name in dirs:
+            os.chown(os.path.join(root, dir_name), uid, gid)
             os.chmod(os.path.join(root, dir_name), 0o755)
         for file_name in files:
+            os.chown(os.path.join(root, file_name), uid, gid)
             os.chmod(os.path.join(root, file_name), 0o644)
-    print(f"Permissions changed for {directory}", flush=True)
+    print(f"Permissions and ownership changed for {directory}", flush=True)
 
-# Function to append or update a parameter in a config file
-def update_config_file(filepath, parameter, value):
+# Function to append or update a parameter in postgresql.conf
+def update_postgresql_conf(filepath, parameter, value):
     try:
         updated = False
         with open(filepath, 'r') as file:
@@ -60,6 +62,15 @@ def update_config_file(filepath, parameter, value):
     except Exception as e:
         print(f"Error updating {parameter} in {filepath}: {str(e)}", flush=True)
 
+# Function to add a line to pg_hba.conf
+def add_line_to_pg_hba_conf(filepath, line):
+    try:
+        with open(filepath, 'a') as file:
+            file.write(f"{line}\n")
+        print(f"Added line to {filepath}: {line}", flush=True)
+    except Exception as e:
+        print(f"Error adding line to {filepath}: {str(e)}", flush=True)
+
 # Paths to directories and files
 pg_backup_tar = '/pg_backup.tar'
 pg_master = '/pg_master'
@@ -68,6 +79,9 @@ pg_asyncslave = '/pg_asyncslave'
 
 # Path to flag file
 flag_file = '/setup_done.flag'
+
+# Retrieve PG_NET from environment variables
+PG_NET = os.environ.get('PG_NET')
 
 # Check if setup is already done
 if os.path.exists(flag_file):
@@ -80,10 +94,10 @@ extract_tar(pg_backup_tar, pg_master)
 extract_tar(pg_backup_tar, pg_slave)
 extract_tar(pg_backup_tar, pg_asyncslave)
 
-# Change permissions of extracted files
-change_permissions(pg_master)
-change_permissions(pg_slave)
-change_permissions(pg_asyncslave)
+# Change permissions and ownership of extracted files
+change_permissions_and_ownership(pg_master)
+change_permissions_and_ownership(pg_slave)
+change_permissions_and_ownership(pg_asyncslave)
 
 # Configure PostgreSQL settings on /pg_master
 configurations = {
@@ -93,20 +107,20 @@ configurations = {
 }
 
 for param, value in configurations.items():
-    update_config_file(os.path.join(pg_master, 'postgresql.conf'), param, value)
+    update_postgresql_conf(os.path.join(pg_master, 'postgresql.conf'), param, value)
 
 # Update pg_hba.conf on /pg_master
-# update_config_file(os.path.join(pg_master, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5", "")
+add_line_to_pg_hba_conf(os.path.join(pg_master, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
 
 # Create standby.signal file and configure settings on /pg_slave
 open(os.path.join(pg_slave, 'standby.signal'), 'a').close()
-update_config_file(os.path.join(pg_slave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_slave'")
-# update_config_file(os.path.join(pg_slave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5", "")
+update_postgresql_conf(os.path.join(pg_slave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_slave'")
+add_line_to_pg_hba_conf(os.path.join(pg_slave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
 
 # Create standby.signal file and configure settings on /pg_asyncslave
 open(os.path.join(pg_asyncslave, 'standby.signal'), 'a').close()
-update_config_file(os.path.join(pg_asyncslave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_asyncslave'")
-# update_config_file(os.path.join(pg_asyncslave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5", "")
+update_postgresql_conf(os.path.join(pg_asyncslave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_asyncslave'")
+add_line_to_pg_hba_conf(os.path.join(pg_asyncslave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
 
 # Create flag file to indicate setup is done
 with open(flag_file, 'w') as file:

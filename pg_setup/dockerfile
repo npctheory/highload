@@ -2,16 +2,10 @@ FROM python:latest
 RUN apt-get update && \
     apt-get install -y --no-install-recommends bash && \
     rm -rf /var/lib/apt/lists/*
-# Set the working directory
 WORKDIR /
-
-# Copy the necessary files
 COPY pg_backup/pg_backup.part.* /tmp/
 RUN cat /tmp/pg_backup.part.* > /pg_backup.tar
 COPY setup.py /setup.py
-
-# Ensure setup.py has executable permissions
 RUN chmod +x /setup.py
-
-# Use Python to run the script
+USER root
 ENTRYPOINT ["python", "/setup.py"]
