@@ -2,23 +2,32 @@
 
 import shutil
 import os
+import tarfile
 import time
+import stat
 
 # Function to check if a directory is empty
 def is_directory_empty(directory):
     return not os.listdir(directory)
 
-# Function to copy directory contents recursively
-def copy_contents(source, destination):
-    print(f"Copying from {source} to {destination}...", flush=True)
+# Function to extract tar archive contents
+def extract_tar(tarfile_path, destination):
+    print(f"Extracting {tarfile_path} to {destination}...", flush=True)
     try:
-        if is_directory_empty(destination):
-            shutil.copytree(source, destination, dirs_exist_ok=True)
-            print(f"Copy to {destination} successful", flush=True)
-        else:
-            print(f"Skipping copy to {destination}: Directory is not empty", flush=True)
+        with tarfile.open(tarfile_path, 'r') as tar:
+            tar.extractall(path=destination)
+        print(f"Extraction to {destination} successful", flush=True)
     except Exception as e:
-        print(f"Error copying to {destination}: {str(e)}", flush=True)
+        print(f"Error extracting {tarfile_path} to {destination}: {str(e)}", flush=True)
+
+# Function to change ownership and permissions of files
+def change_permissions(directory):
+    for root, dirs, files in os.walk(directory):
+        for dir_name in dirs:
+            os.chmod(os.path.join(root, dir_name), 0o755)
+        for file_name in files:
+            os.chmod(os.path.join(root, file_name), 0o644)
+    print(f"Permissions changed for {directory}", flush=True)
 
 # Function to append or update a parameter in a config file
 def update_config_file(filepath, parameter, value):
@@ -51,8 +60,8 @@ def update_config_file(filepath, parameter, value):
     except Exception as e:
         print(f"Error updating {parameter} in {filepath}: {str(e)}", flush=True)
 
-# Paths to directories
-pg_backup = '/pg_backup'
+# Paths to directories and files
+pg_backup_tar = '/pg_backup.tar'
 pg_master = '/pg_master'
 pg_slave = '/pg_slave'
 pg_asyncslave = '/pg_asyncslave'
@@ -66,10 +75,15 @@ if os.path.exists(flag_file):
     while True:
         time.sleep(3600)  # Sleep for an hour and then repeat indefinitely
 
-# Copy contents of /pg_backup to /pg_master, /pg_slave, /pg_asyncslave
-copy_contents(pg_backup, pg_master)
-copy_contents(pg_backup, pg_slave)
-copy_contents(pg_backup, pg_asyncslave)
+# Extract contents of /pg_backup.tar to /pg_master, /pg_slave, /pg_asyncslave
+extract_tar(pg_backup_tar, pg_master)
+extract_tar(pg_backup_tar, pg_slave)
+extract_tar(pg_backup_tar, pg_asyncslave)
+
+# Change permissions of extracted files
+change_permissions(pg_master)
+change_permissions(pg_slave)
+change_permissions(pg_asyncslave)
 
 # Configure PostgreSQL settings on /pg_master
 configurations = {

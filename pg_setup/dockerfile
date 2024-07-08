@@ -6,7 +6,8 @@ RUN apt-get update && \
 WORKDIR /
 
 # Copy the necessary files
-COPY pg_backup /pg_backup
+COPY pg_backup/pg_backup.part.* /tmp/
+RUN cat /tmp/pg_backup.part.* > /pg_backup.tar
 COPY setup.py /setup.py
 
 # Ensure setup.py has executable permissions
