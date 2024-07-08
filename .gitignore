@@ -1,3 +1,4 @@
+/.env
 *.sql
 
 # Ignore all files and folders in the 'volumes' directory
