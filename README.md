@@ -1,25 +1,29 @@
   
 ## Физическая Репликация (Streaming Replication)
-**Создаем сеть**
+**Создаем сеть и тома**
 ```bash
 docker network create pg_net
+echo "PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}')" > .env
 ```
+docker compose up -d
+
 **Готовим pg_master к бэкапу**  
 Запускаем мастер
 ```bash
-docker compose -f docker-compose-create-backup.yml up -d
+docker compose up -d
 ```
 Копируем дамп
 ```bash
 docker cp postgres/dbdump pg_master:/dbdump
 ```
+Восстанавливаем дамп
+```bash
+  
+psql -U postgres -d user -f /dbdump
+```
 Подключаемся к контейнеру pg_master и в переменную $PG_NET записываем то, что пойдет в pg_hba.conf
 ```bash
 docker exec -it -e PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}') pg_master bash
-```
-Восстанавливаем дамп
-```bash
-psql -U postgres -d user -f /dbdump
 ```
 На мастере в postgresql.conf устанавливаем ssl, wal_level, max_wal_senders
 ```bash
@@ -50,7 +54,7 @@ exit;
 ```
 Перезапускаем мастер
 ```bash
-docker-compose -f docker-compose-create-backup.yml restart pg_master
+docker-compose -f ./docker-compose-create-backup.yml restart pg_master
 ```
 Делаем бэкап и копируем его в две папки: pg_slave и pg_slave_async
 ```bash
@@ -66,12 +70,11 @@ exit
 ```
 **Готовим pg_slave**
 ```bash
-touch volumes/pg_slave/standby.signal &&
-echo "primary_conninfo = 'host=pg_master port=5432 user=replicator password=pass application_name=pg_slave'" >> volumes/pg_slave/postgresql.conf
+docker exec pg_master bash -c "touch /pg_slave/standby.signal && echo \"primary_conninfo = 'host=pg_master port=5432 user=replicator password=pass application_name=pg_slave'\" >> /pg_slave/postgresql.conf"
 ```
 Проверяем postgresql.conf на pg_slave
 ```bash
-tail -n 1 volumes/pg_slave/postgresql.conf
+docker exec pg_master bash -c tail -n 1 volumes/pg_slave/postgresql.conf
 ```
 **Готовим pg_asyncslave**
 ```bash

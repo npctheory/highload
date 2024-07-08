@@ -1,0 +1,16 @@
+FROM python:latest
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends bash && \
+    rm -rf /var/lib/apt/lists/*
+# Set the working directory
+WORKDIR /
+
+# Copy the necessary files
+COPY pg_backup /pg_backup
+COPY setup.py /setup.py
+
+# Ensure setup.py has executable permissions
+RUN chmod +x /setup.py
+
+# Use Python to run the script
+ENTRYPOINT ["python", "/setup.py"]
