@@ -103,7 +103,9 @@ change_permissions_and_ownership(pg_asyncslave)
 configurations = {
     "ssl": "off",
     "wal_level": "replica",
-    "max_wal_senders": "4"
+    "max_wal_senders": "4",
+    "synchronous_commit": "on",
+    "synchronous_standby_names": "'FIRST 1 (pg_slave, pg_asyncslave)'"
 }
 
 for param, value in configurations.items():
