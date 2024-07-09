@@ -10,27 +10,40 @@ echo "PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet
 ```bash
 docker compose up -d
 ```
-Проверяем что обе реплики работают в режиме async
-```bash
-docker exec -it pg_master su - postgres -c psql
-select application_name, sync_state from pg_stat_replication;
-exit
-```
-Делаем на pg_master настройку, что первая реплика из списка должна быть синхронной.
-```bash
-echo "synchronous_commit = on" | tee -a volumes/pg_master/postgresql.conf > /dev/null &&
-echo "synchronous_standby_names = 'FIRST 1 (pg_slave, pg_asyncslave)'" | tee -a volumes/pg_master/postgresql.conf > /dev/null
-```
-Проверяем, чтобы pg_slave был sync а pg_asyncslave был potential
-```bash
-docker exec -it pg_master su - postgres -c psql
 
-select pg_reload_conf();
-select application_name, sync_state from pg_stat_replication;
+***
+## Логическая репликация
+```sql
+-- On pg_master
+CREATE TABLE test (
+    id SERIAL PRIMARY KEY,
+    data TEXT
+);
+GRANT CONNECT ON DATABASE user TO replicator;
+GRANT SELECT ON public.test TO replicator;
+GRANT USAGE ON SCHEMA public TO replicator;
 
-exit
+
+CREATE PUBLICATION my_publication FOR TABLE test;
 ```
-**Проверка**
+```sql
+-- On pg_standalone
+CREATE TABLE test (
+    id SERIAL PRIMARY KEY,
+    data TEXT
+);
+GRANT CONNECT ON DATABASE user TO replicator;
+GRANT SELECT ON public.test TO replicator;
+GRANT USAGE ON SCHEMA public TO replicator;
+
+
+CREATE SUBSCRIPTION my_subscription
+CONNECTION 'host=pg_master port=5432 dbname=user user=replicator password=pass'
+PUBLICATION my_publication;
+
+```
+
+## Проверка
 Создаем тестовые таблицы
 ```bash
 docker exec -it pg_master su - postgres -c psql
@@ -95,26 +108,3 @@ docker start pg_asyncslave
 
 docker stop pg_master
 ```
-***
-## Меняем местами pg_master и pg_slave
-docker exec -it pg_slave su - postgres -c psql
-
-select pg_promote();
-
-exit;
-
-docker exec -it pg_slave su - postgres -c psql
-
-insert into test(id) values(4);
-
-exit;
-
-head -n -2 volumes/pg_slave/postgresql.conf > volumes/pg_slave/postgresql.conf.tmp && mv volumes/pg_slave/postgresql.conf.tmp volumes/pg_slave/postgresql.conf &&
-echo "synchronous_commit = on" | tee -a volumes/pg_slave/postgresql.conf > /dev/null &&
-echo "synchronous_standby_names = 'FIRST 1 (pg_master, pg_asyncslave)'" | tee -a volumes/pg_slave/postgresql.conf > /dev/null
-
-docker exec -it pg_slave su - postgres -c psql
-
-select pg_reload_conf();
-
-exit;

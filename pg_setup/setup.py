@@ -76,6 +76,7 @@ pg_backup_tar = '/pg_backup.tar'
 pg_master = '/pg_master'
 pg_slave = '/pg_slave'
 pg_asyncslave = '/pg_asyncslave'
+pg_standalone = '/pg_standalone'
 
 # Path to flag file
 flag_file = '/setup_done.flag'
@@ -93,16 +94,18 @@ if os.path.exists(flag_file):
 extract_tar(pg_backup_tar, pg_master)
 extract_tar(pg_backup_tar, pg_slave)
 extract_tar(pg_backup_tar, pg_asyncslave)
+extract_tar(pg_backup_tar, pg_standalone)
 
 # Change permissions and ownership of extracted files
 change_permissions_and_ownership(pg_master)
 change_permissions_and_ownership(pg_slave)
 change_permissions_and_ownership(pg_asyncslave)
+change_permissions_and_ownership(pg_standalone)
 
 # Configure PostgreSQL settings on /pg_master
 configurations = {
     "ssl": "off",
-    "wal_level": "replica",
+    "wal_level": "logical",
     "max_wal_senders": "4",
     "synchronous_commit": "on",
     "synchronous_standby_names": "'FIRST 1 (pg_slave, pg_asyncslave)'"
@@ -116,13 +119,20 @@ add_line_to_pg_hba_conf(os.path.join(pg_master, 'pg_hba.conf'), f"host replicati
 
 # Create standby.signal file and configure settings on /pg_slave
 open(os.path.join(pg_slave, 'standby.signal'), 'a').close()
+update_postgresql_conf(os.path.join(pg_standalone, 'postgresql.conf'), "wal_level", "replica")
 update_postgresql_conf(os.path.join(pg_slave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_slave'")
 add_line_to_pg_hba_conf(os.path.join(pg_slave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
 
 # Create standby.signal file and configure settings on /pg_asyncslave
 open(os.path.join(pg_asyncslave, 'standby.signal'), 'a').close()
+update_postgresql_conf(os.path.join(pg_standalone, 'postgresql.conf'), "wal_level", "replica")
 update_postgresql_conf(os.path.join(pg_asyncslave, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_asyncslave'")
 add_line_to_pg_hba_conf(os.path.join(pg_asyncslave, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
+
+# Create standby.signal file and configure settings on /pg_standalone
+update_postgresql_conf(os.path.join(pg_standalone, 'postgresql.conf'), "wal_level", "logical")
+update_postgresql_conf(os.path.join(pg_standalone, 'postgresql.conf'), "primary_conninfo", "'host=pg_master port=5432 user=replicator password=pass application_name=pg_standalone'")
+add_line_to_pg_hba_conf(os.path.join(pg_standalone, 'pg_hba.conf'), f"host replication replicator {PG_NET} md5")
 
 # Create flag file to indicate setup is done
 with open(flag_file, 'w') as file:
