@@ -26,14 +26,24 @@
       register: postgres_config
       changed_when: false
 
+    - name: Check if PostgreSQL role 'replicator' exists
+      ansible.builtin.postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "SELECT 1 FROM pg_roles WHERE rolname = 'replicator';"
+      register: replicator_role_check
+      ignore_errors: true
+
     - set_fact:
         postgres_config_info:
-          subnet: "{{ docker_subnet_info.stdout | from_json | json_query('[].IPAM.Config[0].Subnet') }}"
+          subnet: "{{ docker_subnet_info.stdout | from_json | json_query('[].IPAM.Config[0].Subnet') | first }}"
           wal_level: "{{ postgres_config.stdout_lines[0] }}"
           max_wal_senders: "{{ postgres_config.stdout_lines[1] }}"
           ssl_enabled: "{{ 'enabled' if postgres_config.stdout_lines[2] == 'on' else 'disabled' }}"
           standby_server: "{{ 'Yes' if postgres_config.stdout_lines[3] == 't' else 'No' }}"
           primary_conninfo: "{{ postgres_config.stdout_lines[4] if postgres_config.stdout_lines | length > 4 else 'N/A' }}"
+          replicator_role_exists: "{{ replicator_role_check.rowcount }}"
 
     - debug:
         var: postgres_config_info
