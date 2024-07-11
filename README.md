@@ -35,7 +35,7 @@ ansible-playbook playbooks/debug_pg.yml
 
 ***
 ## Логическая репликация
-По умолчанию в конфиге pg_master установлен wal_level=logical
+По умолчанию в конфиге pg_master установлен wal_level=logical.  
 Как создать публикацию на pg_master и подписку на pg_standalone.
 ```sql
 -- On pg_master
