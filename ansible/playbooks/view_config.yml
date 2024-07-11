@@ -7,6 +7,7 @@
     pg_admin_user: postgres
     pg_admin_password: postgres
     pg_db_name: user
+    pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
 
   tasks:
     - name: Fetch Docker network info
@@ -35,6 +36,12 @@
       register: replicator_role_check
       ignore_errors: true
 
+    - name: Get pg_hba.conf entries
+      ansible.builtin.postgresql_pg_hba:
+        dest: "{{ pg_hba_conf_path }}"
+      register: pg_hba_entries
+      ignore_errors: true
+
     - set_fact:
         postgres_config_info:
           subnet: "{{ docker_subnet_info.stdout | from_json | json_query('[].IPAM.Config[0].Subnet') | first }}"
@@ -44,6 +51,7 @@
           standby_server: "{{ 'Yes' if postgres_config.stdout_lines[3] == 't' else 'No' }}"
           primary_conninfo: "{{ postgres_config.stdout_lines[4] if postgres_config.stdout_lines | length > 4 else 'N/A' }}"
           replicator_role_exists: "{{ replicator_role_check.rowcount }}"
+          pg_hba_entries: "{{ pg_hba_entries.entries | default([]) }}"
 
     - debug:
         var: postgres_config_info
