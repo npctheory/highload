@@ -1,0 +1,192 @@
+version: '3.9'
+
+services:
+  pg_setup:
+    build:
+      context: ./pg_setup
+    container_name: pg_setup
+    restart: unless-stopped
+    environment:
+      PG_NET: ${PG_NET}
+    volumes:
+      - pg_master:/pg_master
+      - pg_slave:/pg_slave
+      - pg_asyncslave:/pg_asyncslave
+      - pg_standalone:/pg_standalone
+    tty: true
+    stdin_open: true
+    healthcheck:
+      test: ["CMD", "test", "-f", "/setup_done.flag"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - pg_net
+
+  pg_master:
+    image: postgres:latest
+    container_name: pg_master
+    restart: unless-stopped
+    depends_on:
+      pg_setup:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "6438:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_master:/var/lib/postgresql/data
+
+  pg_slave:
+    image: postgres:latest
+    container_name: pg_slave
+    restart: unless-stopped
+    depends_on:
+      pg_setup:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "16432:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_slave:/var/lib/postgresql/data
+
+  pg_asyncslave:
+    image: postgres:latest
+    container_name: pg_asyncslave
+    restart: unless-stopped
+    depends_on:
+      pg_setup:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "26432:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_asyncslave:/var/lib/postgresql/data
+
+  pg_standalone:
+    image: postgres:latest
+    container_name: pg_standalone
+    restart: unless-stopped
+    depends_on:
+      pg_setup:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "36432:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_standalone:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - pg_net
+
+  # springboot_app:
+  #   build:
+  #     context: ./app
+  #   container_name: springboot_app
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - pg_master
+  #     - pg_slave
+  #     - pg_asyncslave
+  #   networks:
+  #     - pg_net
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     DATABASE_URL: jdbc:postgresql://pg_master:5432/user
+  #     DATABASE_USER: postgres
+  #     DATABASE_PASSWORD: postgres
+
+  # pg_exporter_master:
+  #   image: prometheuscommunity/postgres-exporter:latest
+  #   container_name: pg_exporter_master
+  #   restart: unless-stopped
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_master:5432/user?sslmode=disable"
+  #   networks:
+  #     - pg_net
+
+  # pg_exporter_slave:
+  #   image: prometheuscommunity/postgres-exporter:latest
+  #   container_name: pg_exporter_slave
+  #   restart: unless-stopped
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_slave:5432/user?sslmode=disable"
+  #   networks:
+  #     - pg_net
+
+  # pg_exporter_asyncslave:
+  #   image: prometheuscommunity/postgres-exporter:latest
+  #   container_name: pg_exporter_asyncslave
+  #   restart: unless-stopped
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_asyncslave:5432/user?sslmode=disable"
+  #   networks:
+  #     - pg_net
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   restart: unless-stopped
+  #   volumes:
+  #     - prometheus_data:/prometheus
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #   networks:
+  #     - pg_net
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana-highload
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3002:3000"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   networks:
+  #     - pg_net
+
+volumes:
+  pg_master:
+  pg_slave:
+  pg_asyncslave:
+  pg_standalone:
+  pgadmin_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  pg_net:
+    external: true

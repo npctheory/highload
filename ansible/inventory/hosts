@@ -1,0 +1,12 @@
+[pg_servers]
+pg_master ansible_connection=docker
+pg_slave ansible_connection=docker
+
+[grafana_servers]
+grafana ansible_connection=docker
+
+[prometheus_servers]
+prometheus ansible_connection=docker
+
+[node_exporters]
+pg_master ansible_connection=docker

@@ -1,16 +1,36 @@
-  
-## Физическая Репликация
-Создаем сеть
+## Начало работы
+Для запуска проекта вам потребуется Docker и Ansible с Community.Docker
+```bash
+pip install ansible
+ansible-galaxy collection install community.docker
+```
+## Как запусить проект
+Собрать docker-образ, который будет базовым для контейнеров postgres
+```bash
+docker build -t pg_db:local ./db
+
+docker run -d \
+  --name pg_master \
+  -e POSTGRES_DB=user \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  pg_db:local
+
+```
+Создать сеть
 ```bash
 docker network create pg_net
 ```
-Создаем файл .env, из которого docker compose будет брать информацию о сети
+Создать файл .env, из которого docker-compose будет брать информацию о сети
 ```bash
 echo "PG_NET=$(docker network inspect pg_net -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}')" > .env
 ```
-Запустить контейнеры pg_master, pg_slave, pg_asyncslave, pg_standalone и все остальные сервисы.
+Запустить docker-compose
 ```bash
 docker compose up -d
+```
+```bash
+ansible-playbook playbooks/debug_pg.yml
 ```
 
 ***

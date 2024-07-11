@@ -1,0 +1,36 @@
+---
+- name: Get PostgreSQL configuration from servers
+  hosts: pg_servers
+  gather_facts: false
+
+  vars:
+    pg_admin_user: postgres
+    pg_admin_password: postgres
+    pg_db_name: user  # Replace with your database name
+
+  tasks:
+    - name: Retrieve PostgreSQL configuration
+      ansible.builtin.command: >
+        psql -U {{ pg_admin_user }} -d {{ pg_db_name }}
+        -c "SHOW wal_level;"
+        -c "SHOW max_wal_senders;"
+        -c "SHOW ssl;"
+        -c "SELECT pg_is_in_recovery();"  # Check if server is a standby
+        -tA
+      register: postgres_config
+      changed_when: false
+
+    - ansible.builtin.debug:
+        msg: |
+          WAL level on {{ inventory_hostname }} is {{ postgres_config.stdout_lines[0] }}
+
+          Max WAL Senders: {{ postgres_config.stdout_lines[1] }}
+          SSL Enabled: {{ 'enabled' if postgres_config.stdout_lines[2] == 'on' else 'disabled' }}
+          {% if postgres_config.stdout_lines[3] == 't' %}
+          Standby Server: Yes
+          Primary Connection Info: {{ postgres_config.stdout_lines[4] if postgres_config.stdout_lines | length > 4 else 'N/A' }}
+          {% else %}
+          Standby Server: No
+          Primary Connection Info: N/A
+          {% endif %}
+
