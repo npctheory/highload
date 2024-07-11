@@ -1,14 +1,20 @@
 ---
 - name: Get PostgreSQL configuration from servers
   hosts: pg_servers
-  gather_facts: false
+  gather_facts: true
 
   vars:
     pg_admin_user: postgres
     pg_admin_password: postgres
-    pg_db_name: user  # Replace with your database name
+    pg_db_name: user
 
   tasks:
+    - name: Fetch Docker network info
+      ansible.builtin.shell: docker network inspect pg_net
+      register: docker_subnet_info
+      changed_when: false
+      delegate_to: localhost
+
     - name: Retrieve PostgreSQL configuration
       ansible.builtin.command: >
         psql -U {{ pg_admin_user }} -d {{ pg_db_name }}
@@ -20,17 +26,14 @@
       register: postgres_config
       changed_when: false
 
-    - ansible.builtin.debug:
-        msg: |
-          WAL level on {{ inventory_hostname }} is {{ postgres_config.stdout_lines[0] }}
+    - set_fact:
+        postgres_config_info:
+          subnet: "{{ docker_subnet_info.stdout | from_json | json_query('[].IPAM.Config[0].Subnet') }}"
+          wal_level: "{{ postgres_config.stdout_lines[0] }}"
+          max_wal_senders: "{{ postgres_config.stdout_lines[1] }}"
+          ssl_enabled: "{{ 'enabled' if postgres_config.stdout_lines[2] == 'on' else 'disabled' }}"
+          standby_server: "{{ 'Yes' if postgres_config.stdout_lines[3] == 't' else 'No' }}"
+          primary_conninfo: "{{ postgres_config.stdout_lines[4] if postgres_config.stdout_lines | length > 4 else 'N/A' }}"
 
-          Max WAL Senders: {{ postgres_config.stdout_lines[1] }}
-          SSL Enabled: {{ 'enabled' if postgres_config.stdout_lines[2] == 'on' else 'disabled' }}
-          {% if postgres_config.stdout_lines[3] == 't' %}
-          Standby Server: Yes
-          Primary Connection Info: {{ postgres_config.stdout_lines[4] if postgres_config.stdout_lines | length > 4 else 'N/A' }}
-          {% else %}
-          Standby Server: No
-          Primary Connection Info: N/A
-          {% endif %}
-
+    - debug:
+        var: postgres_config_info

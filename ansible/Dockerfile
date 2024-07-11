@@ -1,8 +1,10 @@
 # Use the willhallonline/ansible:latest Docker image as base, which is based on Alpine
 FROM willhallonline/ansible:latest
 
-# Install bash and docker
-RUN apk add --no-cache bash docker iputils
+# Install bash, docker, python3, pip, and requests
+RUN apk add --no-cache bash docker python3 py3-pip && \
+    pip3 install --upgrade pip && \
+    pip3 install requests
 
 # Install community.postgresql collection
 RUN ansible-galaxy collection install community.postgresql

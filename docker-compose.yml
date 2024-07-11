@@ -48,6 +48,23 @@ services:
     volumes:
       - pg_slave:/var/lib/postgresql/data
 
+  pg_asyncslave:
+    image: db:local
+    depends_on:
+      - pg_master
+    container_name: pg_asyncslave
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "35436:5432"
+    networks:
+      - pg_net
+    volumes:
+      - pg_asyncslave:/var/lib/postgresql/data
+
 volumes:
   pg_master:
   pg_slave:

@@ -1,6 +1,7 @@
 [pg_servers]
 pg_master ansible_connection=docker
 pg_slave ansible_connection=docker
+pg_asyncslave ansible_connection=docker
 
 [grafana_servers]
 grafana ansible_connection=docker
