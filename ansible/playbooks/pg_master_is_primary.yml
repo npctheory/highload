@@ -88,7 +88,7 @@
         login_host: "{{ inventory_hostname }}"
         login_user: "{{ pg_admin_user }}"
         login_password: "{{ pg_admin_password }}"
-        name: primary_conninfo
+        name: synchronous_commit
         value: "on"
       when: "'pg_master' in inventory_hostname"  
  
