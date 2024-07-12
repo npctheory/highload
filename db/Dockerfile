@@ -9,7 +9,7 @@ RUN apt-get update && \
 # Create a virtual environment and install psycopg2-binary
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install psycopg2-binary requests
+    /opt/venv/bin/pip install psycopg2-binary requests==2.31.0
 
 # Set the virtual environment's Python and Pip as default
 ENV PATH="/opt/venv/bin:$PATH"

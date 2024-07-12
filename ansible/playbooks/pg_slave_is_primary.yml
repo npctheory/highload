@@ -1,0 +1,14 @@
+---
+- name: Включить репликацию. pg_slave - primary
+  hosts: pg_servers
+  become: true
+  gather_facts: false
+
+  vars:
+    pg_admin_user: postgres
+    pg_admin_password: postgres
+    pg_db_name: user
+    pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
+    db_image: '--filter ancestor=db:local'
+    
+  tasks: 

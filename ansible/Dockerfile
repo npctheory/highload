@@ -4,7 +4,7 @@ FROM willhallonline/ansible:latest
 # Install bash, docker, python3, pip, and requests
 RUN apk add --no-cache bash docker python3 py3-pip && \
     pip3 install --upgrade pip && \
-    pip3 install requests
+    pip3 install requests==2.31.0
 
 # Install community.postgresql collection
 RUN ansible-galaxy collection install community.postgresql
