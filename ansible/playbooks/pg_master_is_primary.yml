@@ -30,7 +30,7 @@
         name: wal_level
         value: replica
 
-    - name: Установить max_wal_senders=4
+    - name: Установить max_wal_senders=20
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
         login_host: "{{ inventory_hostname }}"
@@ -39,12 +39,17 @@
         name: max_wal_senders
         value: 20
 
+    - name: Получить подсеть pg_net
+      command: docker network inspect pg_net
+      register: network_info_raw
+      delegate_to: localhost
+
     - name: Дать пользователю replicator доступ к сети в pg_hba.conf
       postgresql_pg_hba:
         dest: /var/lib/postgresql/data/pg_hba.conf
         contype: host
         users: replicator
-        source: samenet
+        source: "{{ (network_info_raw.stdout | from_json)[0].IPAM.Config[0].Subnet }}"
         databases: replication
         method: md5
  
@@ -112,3 +117,22 @@
       loop: "{{ docker_images.stdout_lines}}"
       run_once: true
       delegate_to: localhost
+      
+    - name: Проверить pg_stat_replication
+      community.postgresql.postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "select application_name, sync_state from pg_stat_replication;"
+      register: replication_status
+      until: replication_status.query_result | length > 0
+      retries: 30
+      delay: 10
+      when: "'pg_master' in inventory_hostname"
+
+    - name: Вывести pg_stat_replication
+      debug:
+        msg:
+          - "{{ replication_status.query_result }}"
+      when: "'pg_master' in inventory_hostname"
