@@ -1,5 +1,5 @@
 ---
-- name: Включить репликацию. pg_slave - primary
+- name: pg_slave- primary
   hosts: pg_servers
   become: true
   gather_facts: false
@@ -10,5 +10,93 @@
     pg_db_name: user
     pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
     db_image: '--filter ancestor=db:local'
+    container_name: pg_master
     
-  tasks: 
+  tasks:
+    - name: Stop Docker container pg_master
+      docker_container:
+        name: "pg_master"
+        state: stopped
+      delegate_to: localhost
+      run_once: true
+     
+    - name: Delete standby.signal file if it exists
+      file:
+        path: /var/lib/postgresql/data/standby.signal
+        state: absent
+      when: "'pg_slave' in inventory_hostname"
+      
+    - name: Reset primary_conninfo in postgresql.conf on pg_slave
+      community.postgresql.postgresql_set:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        name: primary_conninfo
+        value: ""
+      when: "'pg_slave' in inventory_hostname"
+      
+    - name: Настраиваем репликацию на pg_slave. synchronous_commit
+      community.postgresql.postgresql_set:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        name: synchronous_commit
+        value: "on"
+      when: "'pg_slave' in inventory_hostname"  
+ 
+    - name: Настраиваем репликацию на pg_slave. synchronous_standby_names=FIRST 1
+      community.postgresql.postgresql_set:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        name: synchronous_standby_names
+        value: "FIRST 1 (pg_asyncslave)"
+      when: "'pg_slave' in inventory_hostname"   
+      
+    - name: Меняем postgresql.conf на реплике pg_asyncslave. primary_conninfo
+      community.postgresql.postgresql_set:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        name: primary_conninfo
+        value: "host=pg_slave port=5432 user=replicator password=pass application_name=pg_slave"
+      when: "'pg_asyncslave' in inventory_hostname"  
+
+    - name: Останавливаем слейвы
+      docker_container:
+        name: "{{ inventory_hostname }}"
+        state: stopped
+      delegate_to: localhost
+      run_once: true
+      when: "'pg_master' not in inventory_hostname"  
+      
+    - name: Запускаем слейвы
+      docker_container:
+        name: "{{ inventory_hostname }}"
+        state: started
+      delegate_to: localhost
+      run_once: true
+      when: "'pg_master' not in inventory_hostname"        
+      
+    - name: Убеждаемся что pg_slave стал primary, а pg_asyncslave стал secondary
+      community.postgresql.postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "select application_name, sync_state from pg_stat_replication;"
+      register: replication_status
+      until: replication_status.query_result | length > 0
+      retries: 30
+      delay: 10
+      when: "'pg_slave' in inventory_hostname"
+
+    - name: Вывести pg_stat_replication
+      debug:
+        msg:
+          - "{{ replication_status.query_result }}"
+      when: "'pg_slave' in inventory_hostname"
