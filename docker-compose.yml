@@ -11,7 +11,7 @@ services:
       - pg_net
     volumes:
       - ./ansible/playbooks/:/ansible/playbooks
-      - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket for Ansible
+      - /var/run/docker.sock:/var/run/docker.sock
 
   pg_master:
     build:
@@ -124,7 +124,25 @@ services:
       - pg_net
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards
+
+  springboot_app:
+    build:
+      context: ./app
+    container_name: app
+    restart: unless-stopped
+    depends_on:
+      - pg_master
+      - pg_slave
+      - pg_asyncslave
+    networks:
+      - pg_net
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: jdbc:postgresql://pg_master:5432/user
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
 
 volumes:
   pg_master:
