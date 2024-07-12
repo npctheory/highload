@@ -30,7 +30,7 @@ services:
       - pg_net
     volumes:
       - pg_master:/var/lib/postgresql/data
-      
+
   pg_slave:
     image: db:local
     depends_on:
@@ -78,6 +78,53 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - pg_net
+
+  pg_master_exporter:
+    image: wrouesnel/postgres_exporter
+    container_name: pg_master_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_master:5432/user?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - pg_net
+
+  pg_slave_exporter:
+    image: wrouesnel/postgres_exporter
+    container_name: pg_slave_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@pg_slave:5432/user?sslmode=disable"
+    ports:
+      - "9188:9187" # Exposing it on a different host port
+    networks:
+      - pg_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    networks:
+      - pg_net
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - pg_net
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
 
 volumes:
   pg_master:
