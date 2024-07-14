@@ -2,6 +2,7 @@ package com.example.demo.repository;
 
 import com.example.demo.exception.BadRequestException;
 import com.example.demo.model.User;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;

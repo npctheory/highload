@@ -3,6 +3,7 @@ package com.example.demo.repository;
 import com.example.demo.exception.NotFoundException;
 import com.example.demo.model.Gender;
 import com.example.demo.model.Profile;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
@@ -15,29 +16,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import java.sql.*;
-import java.util.*;
-import javax.sql.DataSource;
-import org.springframework.stereotype.Repository;
-
-import java.sql.*;
-import java.util.*;
-import javax.sql.DataSource;
-import org.springframework.stereotype.Repository;
-
 @Repository
 public class ProfileRepository {
 
     private final DataSource dataSource;
 
-    public ProfileRepository(DataSource dataSource) {
+    public ProfileRepository(@Qualifier("secondaryDataSource") DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
     public Profile getProfileById(UUID id) {
         Profile profile = null;
         try (Connection connection = dataSource.getConnection()) {
-            String selectProfileSql = "SELECT id, name, surname, date_of_birth, interests, gender, city FROM user_profile WHERE id = ?";
+            String selectProfileSql = "SELECT id, name, surname, date_of_birth, interests, gender, city, md5(name || surname || date_of_birth::text || interests || gender::text || city) as hash_value FROM user_profile WHERE id = ?";
             try (PreparedStatement profileStatement = connection.prepareStatement(selectProfileSql)) {
                 profileStatement.setObject(1, id);
                 try (ResultSet resultSet = profileStatement.executeQuery()) {
@@ -50,6 +41,9 @@ public class ProfileRepository {
                         String genderStr = resultSet.getString("gender");
                         Gender gender = (genderStr != null) ? Gender.valueOf(genderStr) : null;
                         String city = resultSet.getString("city");
+
+                        // Optionally, retrieve and use the hash value if needed
+                        String hashValue = resultSet.getString("hash_value");
 
                         profile = new Profile(profileId, name, surname, dateOfBirth, gender, interests, city);
                     }
@@ -90,6 +84,3 @@ public class ProfileRepository {
         return profiles;
     }
 }
-
-
-

@@ -17,4 +17,14 @@ public class DataSourceConfig {
         dataSource.setPassword(System.getenv("DATABASE_PASSWORD"));
         return dataSource;
     }
+
+    @Bean(name = "secondaryDataSource")
+    public DataSource secondaryDataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.postgresql.Driver");
+        dataSource.setUrl(System.getenv("SECONDARY_DATABASE_URL"));
+        dataSource.setUsername(System.getenv("SECONDARY_DATABASE_USER"));
+        dataSource.setPassword(System.getenv("SECONDARY_DATABASE_PASSWORD"));
+        return dataSource;
+    }
 }
