@@ -19,15 +19,18 @@ import java.util.UUID;
 @Repository
 public class ProfileRepository {
 
-    private final DataSource dataSource;
+    private final DataSource secondaryDataSource;
+    private final DataSource tertiaryDataSource;
 
-    public ProfileRepository(@Qualifier("secondaryDataSource") DataSource dataSource) {
-        this.dataSource = dataSource;
+    public ProfileRepository(@Qualifier("secondaryDataSource") DataSource secondaryDataSource,
+                             @Qualifier("tertiaryDataSource") DataSource tertiaryDataSource) {
+        this.secondaryDataSource = secondaryDataSource;
+        this.tertiaryDataSource = tertiaryDataSource;
     }
 
     public Profile getProfileById(UUID id) {
         Profile profile = null;
-        try (Connection connection = dataSource.getConnection()) {
+        try (Connection connection = secondaryDataSource.getConnection()) {
             String selectProfileSql = "SELECT id, name, surname, date_of_birth, interests, gender, city, md5(name || surname || date_of_birth::text || interests || gender::text || city) as hash_value FROM user_profile WHERE id = ?";
             try (PreparedStatement profileStatement = connection.prepareStatement(selectProfileSql)) {
                 profileStatement.setObject(1, id);
@@ -57,7 +60,7 @@ public class ProfileRepository {
 
     public List<Profile> searchProfiles(String name, String surname) {
         List<Profile> profiles = new ArrayList<>();
-        try (Connection connection = dataSource.getConnection()) {
+        try (Connection connection = tertiaryDataSource.getConnection()) {
             String searchProfilesSql = "SELECT id, name, surname, date_of_birth, interests, gender, city FROM user_profile WHERE name LIKE ? AND surname LIKE ?";
             try (PreparedStatement searchStatement = connection.prepareStatement(searchProfilesSql)) {
                 searchStatement.setString(1, "%" + name + "%");
