@@ -17,11 +17,11 @@ docker compose up -d
 Репликация настраивается через плейбуки ansible. Ansible находится в отдельном контейнере.
 Выберите один из плейбуков:
 ## 1. Асинхронная репликация
+Плейбук async.yml настраивает асинхронную репликацию, в которой pg_master - primary, а pg_slave - secondary.  
+В этой конфигурации методы приложения getProfileById и searchProfiles обращаются к pg_slave.
 ```bash
 docker exec -it ansible bash
 ```
-Плейбук настраивает асинхронную репликацию, в которой pg_master - primary, а pg_slave - secondary.  
-В этой конфигурации методы приложения getProfileById и searchProfiles обращаются к pg_slave.
 ```bash
 ansible-playbook playbooks/async.yml
 ```
@@ -29,7 +29,7 @@ ansible-playbook playbooks/async.yml
 ```bash
 docker exec -it ansible bash
 ```
-Плейбук настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
+Плейбук quorum.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
 Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).
 В этой конфигурации метод приложения getProfileById обращается к pg_slave, а метод searchProfiles к pg_asyncslave.
 ```bash
