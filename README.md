@@ -26,12 +26,12 @@ docker exec -it ansible bash
 ansible-playbook playbooks/async.yml
 ```
 ## 2. Кворумная репликация
-```bash
-docker exec -it ansible bash
-```
 Плейбук quorum.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
 Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).
 В этой конфигурации метод приложения getProfileById обращается к pg_slave, а метод searchProfiles к pg_asyncslave.
+```bash
+docker exec -it ansible bash
+```
 ```bash
 ansible-playbook playbooks/quorum.yml
 ```
