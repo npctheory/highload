@@ -1,6 +1,6 @@
 ---
-- name: Включить репликацию. pg_master - primary
-  hosts: pg_servers
+- name: Настроить асинхронную репликацию на один слейв. pg_master-primary pg_slave-secondary
+  hosts: highload_servers
   become: true
   gather_facts: false
 
@@ -9,9 +9,32 @@
     pg_admin_password: postgres
     pg_db_name: user
     pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
-    db_image: '--filter ancestor=db:local'
-    
-  tasks: 
+    image_filters: '--filter ancestor=db:local --filter ancestor=app:local'
+    application_properties_content: |
+      spring.application.name=Highload Architect
+
+      spring.datasource.url=jdbc:postgresql://pg_master:5432/user
+      spring.datasource.username=postgres
+      spring.datasource.password=postgres
+      spring.datasource.driver-class-name=org.postgresql.Driver
+
+      spring.datasource.secondary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.secondary.username=postgres
+      spring.datasource.secondary.password=postgres
+      spring.datasource.secondary.driver-class-name=org.postgresql.Driver
+
+      spring.datasource.tertiary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.tertiary.username=postgres
+      spring.datasource.tertiary.password=postgres
+      spring.datasource.tertiary.driver-class-name=org.postgresql.Driver
+
+  tasks:
+    - name: Настроить application.properties
+      copy:
+        content: "{{ application_properties_content }}"
+        dest: /BOOT-INF/classes/application.properties
+      when: inventory_hostname in ['app']
+  
     - name: Установить ssl=off
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
@@ -20,6 +43,8 @@
         login_password: "{{ pg_admin_password }}"
         name: ssl
         value: off
+      when: inventory_hostname in ['pg_master', 'pg_slave']
+    
 
     - name: Установить wal_level=replica
       community.postgresql.postgresql_set:
@@ -29,6 +54,7 @@
         login_password: "{{ pg_admin_password }}"
         name: wal_level
         value: replica
+      when: inventory_hostname in ['pg_master', 'pg_slave']
 
     - name: Установить max_wal_senders=20
       community.postgresql.postgresql_set:
@@ -38,6 +64,7 @@
         login_password: "{{ pg_admin_password }}"
         name: max_wal_senders
         value: 20
+      when: inventory_hostname in ['pg_master', 'pg_slave']
 
     - name: Получить подсеть pg_net
       command: docker network inspect pg_net
@@ -52,6 +79,7 @@
         source: "{{ (network_info_raw.stdout | from_json)[0].IPAM.Config[0].Subnet }}"
         databases: replication
         method: md5
+      when: inventory_hostname in ['pg_master', 'pg_slave']
  
     - name: Создать standby.signal
       file:
@@ -60,7 +88,7 @@
         owner: postgres
         group: postgres
         mode: '0644'
-      when: "'pg_master' not in inventory_hostname"  
+      when: inventory_hostname in ['pg_slave']
       
     - name: Установить conninfo pg_slave
       community.postgresql.postgresql_set:
@@ -71,27 +99,17 @@
         name: primary_conninfo
         value: "host=pg_master port=5432 user=replicator password=pass application_name=pg_slave"
       when: "'pg_slave' in inventory_hostname"  
-      
-    - name: Установить conninfo pg_asyncslave
-      community.postgresql.postgresql_set:
-        db: "{{ pg_db_name }}"
-        login_host: "{{ inventory_hostname }}"
-        login_user: "{{ pg_admin_user }}"
-        login_password: "{{ pg_admin_password }}"
-        name: primary_conninfo
-        value: "host=pg_master port=5432 user=replicator password=pass application_name=pg_asyncslave"
-      when: "'pg_asyncslave' in inventory_hostname"  
-      
-    - name: Установить synchronous_commit на pg_master
+ 
+    - name: Установить synchronous_commit=off на pg_master
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
         login_host: "{{ inventory_hostname }}"
         login_user: "{{ pg_admin_user }}"
         login_password: "{{ pg_admin_password }}"
         name: synchronous_commit
-        value: "on"
+        value: "off"
       when: "'pg_master' in inventory_hostname"  
- 
+      
     - name: Установить synchronous_standby_names ANY на pg_master
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
@@ -99,11 +117,12 @@
         login_user: "{{ pg_admin_user }}"
         login_password: "{{ pg_admin_password }}"
         name: synchronous_standby_names
-        value: "ANY 1 (pg_slave, pg_asyncslave)"
+        value: ""
       when: "'pg_master' in inventory_hostname"   
  
+ 
     - name: Получить имена контейнеров для перезагрузки
-      command: docker container ls -a {{ db_image }} --format "{{ '{{' }}.Names {{ '}}' }} {{ '{{' }}.Image {{ '}}' }}"
+      command: docker container ls -a {{ image_filters }} --format "{{ '{{' }}.Names {{ '}}' }} {{ '{{' }}.Image {{ '}}' }}"
       register: docker_images
       run_once: true
       delegate_to: localhost

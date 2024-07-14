@@ -81,6 +81,7 @@ services:
     build:
       context: ./app
     container_name: app
+    image: app:local
     restart: unless-stopped
     depends_on:
       - pg_master
@@ -90,6 +91,8 @@ services:
       - pg_net
     ports:
       - "8080:8080"
+    volumes:
+      - app_data:/BOOT-INF/classes
       
   # pgadmin:
     # image: dpage/pgadmin4:latest
@@ -110,6 +113,7 @@ volumes:
   pg_slave:
   pg_asyncslave:
   pgadmin_data:
+  app_data:
 
 networks:
   pg_net:

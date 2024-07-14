@@ -1,5 +1,5 @@
 ---
-- name: pg_slave- primary
+- name: Отключить pg_master. Сделать pg_slave primary. Перенастроить pg_asyncslave на новый primary.
   hosts: pg_servers
   become: true
   gather_facts: false
@@ -9,24 +9,39 @@
     pg_admin_password: postgres
     pg_db_name: user
     pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
-    db_image: '--filter ancestor=db:local'
-    container_name: pg_master
-    
+    image_filters: '--filter ancestor=db:local --filter ancestor=app:local'
+    application_properties_content: |
+      spring.application.name=Highload Architect
+
+      spring.datasource.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.username=postgres
+      spring.datasource.password=postgres
+      spring.datasource.driver-class-name=org.postgresql.Driver
+
+      spring.datasource.secondary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.secondary.username=postgres
+      spring.datasource.secondary.password=postgres
+      spring.datasource.secondary.driver-class-name=org.postgresql.Driver
+
+      spring.datasource.tertiary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.tertiary.username=postgres
+      spring.datasource.tertiary.password=postgres
+      spring.datasource.tertiary.driver-class-name=org.postgresql.Driver
+
   tasks:
-    - name: Stop Docker container pg_master
-      docker_container:
-        name: "pg_master"
-        state: stopped
-      delegate_to: localhost
-      run_once: true
+    - name: Настроить application.properties
+      copy:
+        content: "{{ application_properties_content }}"
+        dest: /BOOT-INF/classes/application.properties
+      when: inventory_hostname in ['app']
      
-    - name: Delete standby.signal file if it exists
+    - name: Удалить standby.signal на pg_slave
       file:
         path: /var/lib/postgresql/data/standby.signal
         state: absent
-      when: "'pg_slave' in inventory_hostname"
+      when: inventory_hostname in ['pg_slave']
       
-    - name: Reset primary_conninfo in postgresql.conf on pg_slave
+    - name: Убрать primary_conninfo из pg_slave
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
         login_host: "{{ inventory_hostname }}"
@@ -56,7 +71,7 @@
         value: "FIRST 1 (pg_asyncslave)"
       when: "'pg_slave' in inventory_hostname"   
       
-    - name: Меняем postgresql.conf на реплике pg_asyncslave. primary_conninfo
+    - name: Меняем postgresql.conf на pg_asyncslave. primary_conninfo
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
         login_host: "{{ inventory_hostname }}"
