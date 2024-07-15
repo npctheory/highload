@@ -19,34 +19,37 @@ docker compose up -d
 
 ---
 ## 1. Асинхронная репликация
-Плейбук async.yml настраивает асинхронную репликацию, в которой pg_master - primary, а pg_slave - secondary.  
-В этой конфигурации методы приложения getProfileById и searchProfiles обращаются к pg_slave.
+Начальное состояние системы: серверы pg_master и pg_slave работают независимо. Все методы приложения Spring Boot используют БД pg_master.  
+Плейбук async.yml настраивает асинхронную репликацию, в которой pg_master - primary, pg_slave - secondary а также изменяет конфигурационный файл приложения Spring Boot - БД pg_slave становится дата-сорсом, который используется методами getProfileById и searchProfiles.  
+Для нагрузки на чтение используется тест read.jmx.  
+Выполнение плейбука:  
 ```bash
 docker exec -it ansible bash
 ```
 ```bash
 ansible-playbook playbooks/async.yml
 ```
-Видео:  
+На видео показано, как до выполнения плейбука в cAdvisor использование памяти контейнером pg_master превышает тот же показатель на pg_slave в 10 раз. После выполнения плейбука уже pg_slave использует в 10 раз больще памяти чем pg_master:  
 
 [async.webm](https://github.com/user-attachments/assets/9367cdd0-e272-4e4b-9f18-3a539cc66e8c)
 
 ---
 ## 2. Кворумная репликация
+Начальное состояние системы: серверы pg_master, pg_slave, pg_asyncslave работают независимо.  
 Плейбук quorum1.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
-Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).
-В этой конфигурации метод приложения getProfileById обращается к pg_slave, а метод searchProfiles к pg_asyncslave.
+Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).  
+Для нагрузки на чтение используется тест userRegister.jmx.  
 ```bash
 docker exec -it ansible bash
 ```
 ```bash
 ansible-playbook playbooks/quorum1.yml
 ```
-Плейбук quorum2.yml: Отключение pg_master, промоушн pg_slave и перенастройка pg_asyncslave на получение WAL от pg_slave.
+Плейбук quorum2.yml: После того как репликация настроена, мы создаем новых пользователей на мастере, отключаем pg_asynclsave, останавливаем создание пользователей, промоутим pg_slave до primary и перенастраиваем pg_master и pg_asyncslave на получение WAL от pg_slave. Перед перезагрузкой смотрим количество пользователей в таблицах.
 ```bash
 ansible-playbook playbooks/quorum2.yml
 ```
-Видео:  
+На видео показано, что после отключения контейнера с репликой pg_asyncslave возникает расхождение в количестве записей на pg_slave и pg_asyncslave. После промоушена pg_slave количество записей выравнивается:     
 
 [quorum.webm](https://github.com/user-attachments/assets/a206af4c-96e2-47fc-92dd-4418e3b04cdb)
 
