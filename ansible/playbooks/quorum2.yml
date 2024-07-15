@@ -43,11 +43,24 @@
         msg: "{{ count_users_before.query_result }} записей"
       when: inventory_hostname in ['pg_master', 'pg_slave', 'pg_asyncslave']
 
-    - name: Включить нагрузку на запись в pg_master в jmeter
+    - name: Включить нагрузку на запись в pg_master
       pause:
-        seconds: 30
+        seconds: 120
       run_once: true
 
+    - name: Остановить pg_asyncslave
+      docker_container:
+        name: "pg_asyncslave"
+        image: "db:local"
+        state: stopped
+      run_once: true
+      delegate_to: localhost
+
+    - name: Выключить нагрузку на запись в pg_master
+      pause:
+        seconds: 120
+      run_once: true
+      
     - name: Остановить мастер
       docker_container:
         name: "pg_master"
@@ -55,7 +68,37 @@
         state: stopped
       run_once: true
       delegate_to: localhost
-        
+      
+    - name: Запустить pg_asyncslave
+      docker_container:
+        name: "pg_asyncslave"
+        image: "db:local"
+        state: started
+      run_once: true
+      delegate_to: localhost
+
+    - name: Посчитать количество записей в user_account
+      postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "SELECT COUNT(*) FROM user_account;"
+      register: count_users_after
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
+
+    - name: Вывести количество записей в user_account
+      debug:
+        msg: "{{ count_users_after.query_result }} записей"
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
+
+    - name: Запустить мастер
+      docker_container:
+        name: "pg_master"
+        image: "db:local"
+        state: started
+      run_once: true
+      delegate_to: localhost
+
     - name: Настроить application.properties
       copy:
         content: "{{ application_properties_content }}"
@@ -68,6 +111,15 @@
         state: absent
       when: inventory_hostname in ['pg_slave']
       
+    - name: Создать standby.signal на pg_master
+      file:
+        path: /var/lib/postgresql/data/standby.signal
+        state: touch
+        owner: postgres
+        group: postgres
+        mode: '0644'
+      when: inventory_hostname in ['pg_master']
+      
     - name: Убрать primary_conninfo из pg_slave
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
@@ -78,7 +130,7 @@
         value: ""
       when: inventory_hostname in ['pg_slave']
       
-    - name: Изменить primary_conninfo из pg_asyncslave
+    - name: Изменить primary_conninfo на pg_master и pg_asyncslave
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
         login_host: "{{ inventory_hostname }}"
@@ -86,7 +138,7 @@
         login_password: "{{ pg_admin_password }}"
         name: primary_conninfo
         value: "host=pg_slave port=5432 user=replicator password=pass application_name={{ inventory_hostname }}"
-      when: inventory_hostname in ['pg_asyncslave']
+      when: inventory_hostname in ['pg_master','pg_asyncslave']
       
     - name: Настраиваем репликацию на pg_slave. synchronous_commit
       community.postgresql.postgresql_set:
@@ -105,24 +157,10 @@
         login_user: "{{ pg_admin_user }}"
         login_password: "{{ pg_admin_password }}"
         name: synchronous_standby_names
-        value: "FIRST 1 (pg_asyncslave)"
+        value: "FIRST 1 (pg_asyncslave, pg_master)"
       when: inventory_hostname in ['pg_slave'] 
 
-    - name: Посчитать количество записей в user_account
-      postgresql_query:
-        db: "{{ pg_db_name }}"
-        login_user: "{{ pg_admin_user }}"
-        login_password: "{{ pg_admin_password }}"
-        query: "SELECT COUNT(*) FROM user_account;"
-      register: count_users_after
-      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
-
-    - name: Вывести количество записей в user_account
-      debug:
-        msg: "{{ count_users_after.query_result }} записей"
-      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
-
-    - name: Перезапустить pg_slave и pg_asyncslave
+    - name: Перезапустить
       docker_container:
         name: "{{ inventory_hostname }}"
         image: "db:local"
@@ -130,7 +168,7 @@
         restart: true
       run_once: true
       delegate_to: localhost
-      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
+      when: inventory_hostname in ['pg_master','pg_slave', 'pg_asyncslave']
       
     - name: Убеждаемся что pg_slave стал primary, а pg_asyncslave стал secondary
       community.postgresql.postgresql_query:
@@ -150,3 +188,17 @@
         msg:
           - "{{ replication_status.query_result }}"
       when: inventory_hostname in ['pg_slave']
+      
+    - name: Посчитать количество записей в user_account
+      postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "SELECT COUNT(*) FROM user_account;"
+      register: count_users_final
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
+
+    - name: Вывести количество записей в user_account
+      debug:
+        msg: "{{ count_users_final.query_result }} записей"
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']

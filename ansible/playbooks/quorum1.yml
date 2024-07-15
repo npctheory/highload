@@ -10,31 +10,8 @@
     pg_db_name: user
     pg_hba_conf_path: /var/lib/postgresql/data/pg_hba.conf
     image_filters: '--filter ancestor=db:local --filter ancestor=app:local'
-    application_properties_content: |
-      spring.application.name=Highload Architect
-
-      spring.datasource.url=jdbc:postgresql://pg_master:5432/user
-      spring.datasource.username=postgres
-      spring.datasource.password=postgres
-      spring.datasource.driver-class-name=org.postgresql.Driver
-
-      spring.datasource.secondary.url=jdbc:postgresql://pg_slave:5432/user
-      spring.datasource.secondary.username=postgres
-      spring.datasource.secondary.password=postgres
-      spring.datasource.secondary.driver-class-name=org.postgresql.Driver
-
-      spring.datasource.tertiary.url=jdbc:postgresql://pg_asyncslave:5432/user
-      spring.datasource.tertiary.username=postgres
-      spring.datasource.tertiary.password=postgres
-      spring.datasource.tertiary.driver-class-name=org.postgresql.Driver
 
   tasks:
-    - name: Настроить application.properties
-      copy:
-        content: "{{ application_properties_content }}"
-        dest: /BOOT-INF/classes/application.properties
-      when: inventory_hostname in ['app']
-      
     - name: Установить ssl=off
       community.postgresql.postgresql_set:
         db: "{{ pg_db_name }}"
