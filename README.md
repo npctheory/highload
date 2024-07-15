@@ -25,6 +25,9 @@ docker exec -it ansible bash
 ```bash
 ansible-playbook playbooks/async.yml
 ```
+Видео:
+[async.webm](https://github.com/user-attachments/assets/9367cdd0-e272-4e4b-9f18-3a539cc66e8c)
+---
 ## 2. Кворумная репликация
 Плейбук quorum.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
 Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).
