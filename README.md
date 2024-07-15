@@ -33,18 +33,18 @@ ansible-playbook playbooks/async.yml
 
 ---
 ## 2. Кворумная репликация
-Плейбук quorum.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
+Плейбук quorum1.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
 Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).
 В этой конфигурации метод приложения getProfileById обращается к pg_slave, а метод searchProfiles к pg_asyncslave.
 ```bash
 docker exec -it ansible bash
 ```
 ```bash
-ansible-playbook playbooks/quorum.yml
+ansible-playbook playbooks/quorum1.yml
 ```
-Отключение pg_master, промоушн pg_slave и перенастройка pg_asyncslave на получение WAL от pg_slave.
+Плейбук quorum2.yml: Отключение pg_master, промоушн pg_slave и перенастройка pg_asyncslave на получение WAL от pg_slave.
 ```bash
-ansible-playbook playbooks/quorum_off.yml
+ansible-playbook playbooks/quorum2.yml
 ```
 Видео:  
 
