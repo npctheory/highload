@@ -15,7 +15,9 @@ docker network create pg_net
 docker compose up -d
 ```
 Репликация настраивается через плейбуки ansible. Ansible находится в отдельном контейнере.
-Выберите один из плейбуков:
+Выберите один из плейбуков:  
+
+---
 ## 1. Асинхронная репликация
 Плейбук async.yml настраивает асинхронную репликацию, в которой pg_master - primary, а pg_slave - secondary.  
 В этой конфигурации методы приложения getProfileById и searchProfiles обращаются к pg_slave.
@@ -25,8 +27,10 @@ docker exec -it ansible bash
 ```bash
 ansible-playbook playbooks/async.yml
 ```
-Видео:
+Видео:  
+
 [async.webm](https://github.com/user-attachments/assets/9367cdd0-e272-4e4b-9f18-3a539cc66e8c)
+
 ---
 ## 2. Кворумная репликация
 Плейбук quorum.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
@@ -42,3 +46,7 @@ ansible-playbook playbooks/quorum.yml
 ```bash
 ansible-playbook playbooks/quorum_off.yml
 ```
+Видео:  
+
+[quorum.webm](https://github.com/user-attachments/assets/a206af4c-96e2-47fc-92dd-4418e3b04cdb)
+
