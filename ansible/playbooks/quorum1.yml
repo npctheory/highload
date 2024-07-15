@@ -141,10 +141,6 @@
       run_once: true
       delegate_to: localhost
       
-    - name: Pause for 30 seconds
-      pause:
-        seconds: 30
-      
     - name: Проверить pg_stat_replication
       community.postgresql.postgresql_query:
         db: "{{ pg_db_name }}"

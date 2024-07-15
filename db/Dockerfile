@@ -1,9 +1,9 @@
 FROM postgres:latest
 USER root
 
-# Install required packages including python3-venv
+# Install required packages including python3-venv and procps
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv && \
+    apt-get install -y python3 python3-pip python3-venv procps && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a virtual environment and install psycopg2-binary

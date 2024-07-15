@@ -1,6 +1,6 @@
 ---
 - name: Отключить pg_master. Сделать pg_slave primary. Перенастроить pg_asyncslave на новый primary.
-  hosts: pg_servers
+  hosts: highload_servers
   become: true
   gather_facts: false
 
@@ -29,6 +29,33 @@
       spring.datasource.tertiary.driver-class-name=org.postgresql.Driver
 
   tasks:
+    - name: Посчитать количество записей в user_account
+      postgresql_query:
+        db: "{{ pg_db_name }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        query: "SELECT COUNT(*) FROM user_account;"
+      register: count_users_before
+      when: inventory_hostname in ['pg_master', 'pg_slave', 'pg_asyncslave']
+
+    - name: Вывести количество записей в user_account
+      debug:
+        msg: "{{ count_users_before.query_result }} записей"
+      when: inventory_hostname in ['pg_master', 'pg_slave', 'pg_asyncslave']
+
+    - name: Включить нагрузку на запись в pg_master в jmeter
+      pause:
+        seconds: 30
+      run_once: true
+
+    - name: Остановить мастер
+      docker_container:
+        name: "pg_master"
+        image: "db:local"
+        state: stopped
+      run_once: true
+      delegate_to: localhost
+        
     - name: Настроить application.properties
       copy:
         content: "{{ application_properties_content }}"
@@ -49,7 +76,17 @@
         login_password: "{{ pg_admin_password }}"
         name: primary_conninfo
         value: ""
-      when: "'pg_slave' in inventory_hostname"
+      when: inventory_hostname in ['pg_slave']
+      
+    - name: Изменить primary_conninfo из pg_asyncslave
+      community.postgresql.postgresql_set:
+        db: "{{ pg_db_name }}"
+        login_host: "{{ inventory_hostname }}"
+        login_user: "{{ pg_admin_user }}"
+        login_password: "{{ pg_admin_password }}"
+        name: primary_conninfo
+        value: "host=pg_slave port=5432 user=replicator password=pass application_name={{ inventory_hostname }}"
+      when: inventory_hostname in ['pg_asyncslave']
       
     - name: Настраиваем репликацию на pg_slave. synchronous_commit
       community.postgresql.postgresql_set:
@@ -59,7 +96,7 @@
         login_password: "{{ pg_admin_password }}"
         name: synchronous_commit
         value: "on"
-      when: "'pg_slave' in inventory_hostname"  
+      when: inventory_hostname in ['pg_slave']
  
     - name: Настраиваем репликацию на pg_slave. synchronous_standby_names=FIRST 1
       community.postgresql.postgresql_set:
@@ -69,33 +106,31 @@
         login_password: "{{ pg_admin_password }}"
         name: synchronous_standby_names
         value: "FIRST 1 (pg_asyncslave)"
-      when: "'pg_slave' in inventory_hostname"   
-      
-    - name: Меняем postgresql.conf на pg_asyncslave. primary_conninfo
-      community.postgresql.postgresql_set:
+      when: inventory_hostname in ['pg_slave'] 
+
+    - name: Посчитать количество записей в user_account
+      postgresql_query:
         db: "{{ pg_db_name }}"
-        login_host: "{{ inventory_hostname }}"
         login_user: "{{ pg_admin_user }}"
         login_password: "{{ pg_admin_password }}"
-        name: primary_conninfo
-        value: "host=pg_slave port=5432 user=replicator password=pass application_name=pg_slave"
-      when: "'pg_asyncslave' in inventory_hostname"  
+        query: "SELECT COUNT(*) FROM user_account;"
+      register: count_users_after
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
 
-    - name: Останавливаем слейвы
+    - name: Вывести количество записей в user_account
+      debug:
+        msg: "{{ count_users_after.query_result }} записей"
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
+
+    - name: Перезапустить pg_slave и pg_asyncslave
       docker_container:
         name: "{{ inventory_hostname }}"
-        state: stopped
-      delegate_to: localhost
-      run_once: true
-      when: "'pg_master' not in inventory_hostname"  
-      
-    - name: Запускаем слейвы
-      docker_container:
-        name: "{{ inventory_hostname }}"
+        image: "db:local"
         state: started
-      delegate_to: localhost
+        restart: true
       run_once: true
-      when: "'pg_master' not in inventory_hostname"        
+      delegate_to: localhost
+      when: inventory_hostname in ['pg_slave', 'pg_asyncslave']
       
     - name: Убеждаемся что pg_slave стал primary, а pg_asyncslave стал secondary
       community.postgresql.postgresql_query:
@@ -108,10 +143,10 @@
       until: replication_status.query_result | length > 0
       retries: 30
       delay: 10
-      when: "'pg_slave' in inventory_hostname"
+      when: inventory_hostname in ['pg_slave']
 
     - name: Вывести pg_stat_replication
       debug:
         msg:
           - "{{ replication_status.query_result }}"
-      when: "'pg_slave' in inventory_hostname"
+      when: inventory_hostname in ['pg_slave']
