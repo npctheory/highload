@@ -38,14 +38,19 @@ ansible-playbook playbooks/async.yml
 Начальное состояние системы: серверы pg_master, pg_slave, pg_asyncslave работают независимо.  
 Плейбук quorum1.yml настраивает кворумную репликацию, в которой pg_master - primary, а pg_slave, pg_asyncslave - secondary.  
 Значение synchronous_standby_names на pg_master становится ANY 1 (pg_slave, pg_asyncslave).  
-Для нагрузки на чтение используется тест userRegister.jmx.  
+Для нагрузки на чтение используется тест read.jmx.  
 ```bash
 docker exec -it ansible bash
 ```
 ```bash
 ansible-playbook playbooks/quorum1.yml
 ```
+
+[balanced.webm](https://github.com/user-attachments/assets/cb20d1ad-96cd-4a91-aa66-0f9f0af55ea6)
+
+
 Плейбук quorum2.yml: После того как репликация настроена, мы создаем новых пользователей на мастере, отключаем pg_asynclsave, останавливаем создание пользователей, промоутим pg_slave до primary и перенастраиваем pg_master и pg_asyncslave на получение WAL от pg_slave. Перед перезагрузкой смотрим количество пользователей в таблицах.
+Для нагрузки на запись используется тест userRegister.jmx.  
 ```bash
 ansible-playbook playbooks/quorum2.yml
 ```
