@@ -18,12 +18,12 @@
       spring.datasource.password=postgres
       spring.datasource.driver-class-name=org.postgresql.Driver
 
-      spring.datasource.secondary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.secondary.url=jdbc:postgresql://pg_asyncslave:5432/user
       spring.datasource.secondary.username=postgres
       spring.datasource.secondary.password=postgres
       spring.datasource.secondary.driver-class-name=org.postgresql.Driver
 
-      spring.datasource.tertiary.url=jdbc:postgresql://pg_slave:5432/user
+      spring.datasource.tertiary.url=jdbc:postgresql://pg_asyncslave:5432/user
       spring.datasource.tertiary.username=postgres
       spring.datasource.tertiary.password=postgres
       spring.datasource.tertiary.driver-class-name=org.postgresql.Driver
