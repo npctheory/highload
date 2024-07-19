@@ -10,7 +10,7 @@
 ```bash
 docker network create pg_net
 ```
-Находясь в папке highload запустить docker-compose:
+Находясь в папке highload-replication запустить docker-compose:
 ```bash
 docker compose up -d
 ```
